@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spare Parts Lookup</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg:        #f0f2f7;
+  --panel:     #ffffff;
+  --surface:   #f7f8fc;
+  --border:    #e2e6ef;
+  --border2:   #d0d5e3;
+  --accent:    #1a56db;
+  --accent-dim:#1a56db18;
+  --green:     #0a7c5c;
+  --text:      #111827;
+  --muted:     #6b7280;
+  --mono:      'IBM Plex Mono', monospace;
+  --sans:      'IBM Plex Sans', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 16px;
+}
+
+.header {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo-icon {
+  width: 34px; height: 34px;
+  background: var(--accent);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+.logo-text { font-family: var(--mono); font-weight: 600; font-size: 16px; letter-spacing: 0.5px; }
+.logo-sub { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+.header-stat { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.header-stat span { color: var(--accent); font-weight: 700; }
+
+.search-panel {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 20px 32px;
+}
+.search-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-label { font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+
+.autocomplete-wrap { position: relative; flex: 1; min-width: 260px; }
+
+.search-input {
+  width: 100%;
+  background: var(--panel);
+  border: 1.5px solid var(--border2);
+  border-radius: 8px;
+  padding: 12px 44px 12px 18px;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.15s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  -webkit-appearance: none;
+}
+.search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.search-input::placeholder { color: var(--muted); }
+
+.search-icon { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+
+.suggestions {
+  position: absolute;
+  top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--panel);
+  border: 1.5px solid var(--border2);
+  border-radius: 10px;
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 300;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+  display: none;
+}
+.suggestions.open { display: block; }
+
+.suggestion-item {
+  padding: 11px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 3px;
+  transition: background 0.1s;
+}
+.suggestion-item:last-child { border-bottom: none; }
+.suggestion-item:hover, .suggestion-item.active { background: #eef3ff; }
+.sug-main { font-size: 15px; color: var(--text); }
+.sug-main mark { background: transparent; color: var(--accent); font-weight: 700; }
+.sug-sub { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+
+.cat-select {
+  background: var(--panel);
+  border: 1.5px solid var(--border2);
+  border-radius: 8px;
+  padding: 12px 40px 12px 16px;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 16px;
+  outline: none;
+  cursor: pointer;
+  min-width: 210px;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  transition: border-color 0.15s;
+}
+.cat-select:focus { border-color: var(--accent); }
+
+.btn {
+  padding: 12px 26px;
+  border: none; border-radius: 8px;
+  font-family: var(--sans); font-weight: 600; font-size: 15px;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #1446c0; }
+.btn-primary:active { transform: scale(0.97); }
+.btn-ghost { background: var(--surface); color: var(--muted); border: 1.5px solid var(--border2); }
+.btn-ghost:hover { color: var(--text); }
+.btn-ghost:active { transform: scale(0.97); }
+
+.results-area { padding: 24px 32px; }
+.results-count { font-family: var(--mono); font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+.results-count .num { color: var(--green); font-weight: 700; }
+
+.table-wrap { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { width: 100%; border-collapse: collapse; min-width: 700px; }
+thead tr { background: var(--surface); border-bottom: 2px solid var(--border2); }
+th { padding: 13px 16px; text-align: left; font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+tbody tr { border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: #eef3ff; }
+td { padding: 14px 16px; font-size: 15px; vertical-align: middle; }
+td.name-cell { font-weight: 600; max-width: 220px; }
+td.part-cell { font-family: var(--mono); font-size: 13px; color: #374151; max-width: 200px; }
+td.brand-cell { color: var(--muted); font-size: 14px; }
+td.cost-cell { font-family: var(--mono); font-weight: 700; color: var(--green); white-space: nowrap; }
+td.loc-cell { font-family: var(--mono); font-size: 12px; color: var(--accent); font-weight: 600; }
+.cell-overflow { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.row-arrow { color: var(--border2); font-size: 18px; text-align: right; }
+tbody tr:hover .row-arrow { color: var(--accent); }
+
+mark { background: transparent; color: var(--accent); font-weight: 700; }
+
+/* Mobile cards */
+.card-list { display: none; flex-direction: column; gap: 10px; }
+.part-card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+  padding: 16px; cursor: pointer; transition: box-shadow 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.part-card:active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+.card-name { font-size: 15px; font-weight: 700; color: var(--text); line-height: 1.3; flex: 1; }
+.card-cost { font-family: var(--mono); font-weight: 700; font-size: 15px; color: var(--green); white-space: nowrap; }
+.card-part { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+.card-bottom { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.card-brand { font-size: 13px; color: var(--muted); }
+.card-loc { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--accent); background: var(--accent-dim); padding: 3px 8px; border-radius: 5px; }
+.card-arrow { color: var(--border2); font-size: 18px; }
+
+.state-box { text-align: center; padding: 60px 20px; color: var(--muted); }
+.state-box .icon { font-size: 40px; margin-bottom: 12px; }
+.state-box p { font-size: 15px; }
+.state-box .sub { font-size: 12px; margin-top: 6px; font-family: var(--mono); color: #ef4444; }
+
+.spinner { display: inline-block; width: 28px; height: 28px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; margin-bottom: 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Modal */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  z-index: 500; display: flex; align-items: center; justify-content: center;
+  padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+
+.modal {
+  background: var(--panel); border: 1px solid var(--border2); border-radius: 16px;
+  width: 100%; max-width: 580px; overflow: hidden;
+  transform: translateY(14px); transition: transform 0.22s;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+}
+.modal-overlay.open .modal { transform: translateY(0); }
+
+.modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.modal-title { font-size: 18px; font-weight: 700; line-height: 1.3; color: var(--text); }
+.modal-part { font-family: var(--mono); font-size: 13px; color: var(--muted); margin-top: 4px; }
+.modal-close {
+  width: 32px; height: 32px; background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 8px; color: var(--muted); font-size: 18px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.modal-close:hover { color: var(--text); }
+
+.modal-body { padding: 20px 24px; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.detail-label { font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.detail-value { font-size: 15px; color: var(--text); font-weight: 600; }
+.detail-value.cost { color: var(--green); font-family: var(--mono); font-size: 18px; font-weight: 700; }
+.detail-value.loc { font-family: var(--mono); font-size: 14px; color: var(--accent); font-weight: 600; }
+.tech-desc-box { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; }
+.tech-desc-label { font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.tech-desc-text { font-size: 15px; line-height: 1.75; color: #374151; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .header { padding: 0 16px; height: 54px; }
+  .logo-sub { display: none; }
+  .search-panel { padding: 14px 16px; }
+  .search-row { flex-direction: column; gap: 10px; }
+  .field-group { width: 100%; }
+  .autocomplete-wrap { min-width: unset; }
+  .cat-select { width: 100%; min-width: unset; }
+  .field-group:last-child { flex-direction: row !important; }
+  .btn { flex: 1; text-align: center; }
+  .results-area { padding: 14px 16px; }
+}
+
+@media (max-width: 540px) {
+  .table-wrap { display: none; }
+  .card-list { display: flex; }
+  .header { height: 50px; padding: 0 14px; }
+  .logo-text { font-size: 14px; }
+
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal {
+    border-radius: 20px 20px 0 0; max-width: 100%;
+    max-height: 90vh; overflow-y: auto;
+    transform: translateY(100%);
+    -webkit-overflow-scrolling: touch;
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+  .modal-header { padding: 28px 18px 16px; position: relative; }
+  .modal-header::before {
+    content: ''; display: block;
+    width: 36px; height: 4px; background: var(--border2); border-radius: 2px;
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  }
+  .detail-grid { grid-template-columns: 1fr 1fr; gap: 14px; }
+  .modal-body { padding: 16px 18px 32px; }
+  .modal-title { font-size: 16px; }
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">
+    <div class="logo-icon">⚙️</div>
+    <div>
+      <div class="logo-text">SPARE PARTS</div>
+      <div class="logo-sub">Equipment Lookup System</div>
+    </div>
+  </div>
+  <div class="header-stat">RECORDS: <span id="total-count">—</span></div>
+</header>
+
+<div class="search-panel">
+  <div class="search-row">
+    <div class="field-group" style="flex:1; min-width:260px;">
+      <div class="field-label">Search — Equipment Name / Spare Part</div>
+      <div class="autocomplete-wrap">
+        <input type="text" id="search-input" class="search-input"
+          placeholder="Type to search..." autocomplete="off" autocorrect="off" spellcheck="false">
+        <span class="search-icon">🔍</span>
+        <div class="suggestions" id="suggestions"></div>
+      </div>
+    </div>
+    <div class="field-group">
+      <div class="field-label">Filter by Category</div>
+      <select id="cat-filter" class="cat-select">
+        <option value="">All Categories</option>
+      </select>
+    </div>
+    <div class="field-group" style="flex-direction:row; gap:8px;">
+      <button class="btn btn-primary" onclick="doSearch()">Search</button>
+      <button class="btn btn-ghost" onclick="resetAll()">Reset</button>
+    </div>
+  </div>
+</div>
+
+<div class="results-area">
+  <div class="results-count" id="results-count"></div>
+  <div id="main-content">
+    <div class="state-box">
+      <div class="spinner"></div>
+      <p>Loading data...</p>
+    </div>
+  </div>
+  <div class="card-list" id="card-list"></div>
+</div>
+
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-title">—</div>
+        <div class="modal-part" id="modal-part">—</div>
+      </div>
+      <button class="modal-close" onclick="closeModalDirect()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="detail-grid">
+        <div class="detail-item">
+          <div class="detail-label">Equipment Category</div>
+          <div class="detail-value" id="modal-cat">—</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Model / Brand</div>
+          <div class="detail-value" id="modal-brand">—</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Unit Cost</div>
+          <div class="detail-value cost" id="modal-cost">—</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Warehouse Location</div>
+          <div class="detail-value loc" id="modal-loc">—</div>
+        </div>
+      </div>
+      <div class="tech-desc-box">
+        <div class="tech-desc-label">Technical Description</div>
+        <div class="tech-desc-text" id="modal-desc">—</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// ⚙️  BƯỚC DUY NHẤT CẦN LÀM: dán SHEET_ID của bạn vào đây
+//     Ví dụ: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms'
+const SHEET_ID   = 'PASTE_YOUR_SHEET_ID_HERE';
+const SHEET_NAME = 'Sheet1'; // đổi nếu sheet tên khác
+// ============================================================
+
+const COLS = {
+  category:    'Equipment Category',
+  name:        'Equipment Name',
+  part:        'Spare Part',
+  brand:       'Model / Brand',
+  cost:        'Unit Cost',
+  description: 'Technical Description',
+  location:    'Warehouse Location'
+};
+
+let allData = [], filteredData = [], activeIdx = -1;
+
+// Fetch CSV từ Google Sheets
+const URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
+
+fetch(URL)
+  .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+  .then(csv => init(parseCSV(csv)))
+  .catch(err => {
+    document.getElementById('main-content').innerHTML =
+      `<div class="state-box">
+        <div class="icon">⚠️</div>
+        <p>Cannot load data</p>
+        <div class="sub">${err.message} — Check SHEET_ID &amp; sharing settings</div>
+      </div>`;
+  });
+
+function parseCSV(text) {
+  const rows = [];
+  text.split(/\r?\n/).forEach(line => {
+    if (!line.trim()) return;
+    const row = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i <= line.length; i++) {
+      const c = line[i];
+      if (c === '"') { inQ = !inQ; continue; }
+      if ((c === ',' || c === undefined) && !inQ) { row.push(cur); cur = ''; }
+      else cur += (c || '');
+    }
+    rows.push(row);
+  });
+  if (rows.length < 2) return [];
+  const headers = rows[0].map(h => h.trim());
+  return rows.slice(1).map(r => {
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = (r[i] || '').trim());
+    return obj;
+  });
+}
+
+function init(data) {
+  allData = data;
+  document.getElementById('total-count').textContent = allData.length;
+  const cats = [...new Set(allData.map(r => r[COLS.category]).filter(Boolean))].sort();
+  const sel = document.getElementById('cat-filter');
+  cats.forEach(c => { const o = document.createElement('option'); o.value = o.textContent = c; sel.appendChild(o); });
+  filteredData = allData;
+  renderAll(allData);
+  updateCount(allData.length, allData.length);
+}
+
+function doSearch() {
+  const kw = document.getElementById('search-input').value.toLowerCase().trim();
+  const cat = document.getElementById('cat-filter').value;
+  hideSug();
+  let r = allData;
+  if (cat) r = r.filter(x => x[COLS.category] === cat);
+  if (kw)  r = r.filter(x =>
+    String(x[COLS.name] || '').toLowerCase().includes(kw) ||
+    String(x[COLS.part] || '').toLowerCase().includes(kw)
+  );
+  filteredData = r;
+  renderAll(r);
+  updateCount(r.length, allData.length);
+}
+
+function resetAll() {
+  document.getElementById('search-input').value = '';
+  document.getElementById('cat-filter').value = '';
+  hideSug();
+  filteredData = allData;
+  renderAll(allData);
+  updateCount(allData.length, allData.length);
+}
+
+// Autocomplete
+document.getElementById('search-input').addEventListener('input', function() {
+  const v = this.value.toLowerCase().trim();
+  if (!v) { hideSug(); return; }
+  const seen = new Set(), sugs = [];
+  allData.forEach(r => {
+    const n = String(r[COLS.name]||''), p = String(r[COLS.part]||'');
+    if (n.toLowerCase().includes(v) && !seen.has(n)) { seen.add(n); sugs.push({main:n,sub:p,type:'Equipment Name'}); }
+    if (p.toLowerCase().includes(v) && !seen.has(p)) { seen.add(p); sugs.push({main:p,sub:n,type:'Spare Part'}); }
+  });
+  const top = sugs.slice(0, 8);
+  if (!top.length) { hideSug(); return; }
+  const box = document.getElementById('suggestions');
+  box.innerHTML = top.map((s,i) =>
+    `<div class="suggestion-item" data-idx="${i}" data-val="${esc(s.main)}"
+      onmousedown="pickSug('${esc(s.main)}')" ontouchend="pickSug('${esc(s.main)}')">
+      <div class="sug-main">${hlM(s.main,v)}</div>
+      <div class="sug-sub">${esc(s.sub)} · ${s.type}</div>
+    </div>`).join('');
+  box.classList.add('open');
+  activeIdx = -1;
+});
+
+document.getElementById('search-input').addEventListener('keydown', function(e) {
+  const items = document.querySelectorAll('.suggestion-item');
+  if (e.key==='ArrowDown') { e.preventDefault(); activeIdx=Math.min(activeIdx+1,items.length-1); items.forEach((el,i)=>el.classList.toggle('active',i===activeIdx)); }
+  else if (e.key==='ArrowUp') { e.preventDefault(); activeIdx=Math.max(activeIdx-1,-1); items.forEach((el,i)=>el.classList.toggle('active',i===activeIdx)); }
+  else if (e.key==='Enter') { if (activeIdx>=0&&items[activeIdx]) pickSug(items[activeIdx].dataset.val); else doSearch(); }
+  else if (e.key==='Escape') hideSug();
+});
+
+document.getElementById('search-input').addEventListener('blur', ()=>setTimeout(hideSug,180));
+function pickSug(v) { document.getElementById('search-input').value=v; hideSug(); doSearch(); }
+function hideSug() { document.getElementById('suggestions').classList.remove('open'); activeIdx=-1; }
+
+function renderAll(data) {
+  const kw = document.getElementById('search-input').value.toLowerCase().trim();
+  const wrap = document.getElementById('main-content');
+  const cards = document.getElementById('card-list');
+  if (!data.length) {
+    wrap.innerHTML=`<div class="state-box"><div class="icon">🔍</div><p>No results found</p><div class="sub">Try different keywords or reset filters</div></div>`;
+    cards.innerHTML=''; return;
+  }
+  // Table
+  let t=`<div class="table-wrap"><table><thead><tr>
+    <th>Equipment Name</th><th>Spare Part</th><th>Model / Brand</th>
+    <th>Unit Cost</th><th>Warehouse Location</th><th></th>
+  </tr></thead><tbody>`;
+  data.forEach((row,i) => {
+    t+=`<tr onclick="openModal(${i})">
+      <td class="name-cell"><div class="cell-overflow">${hl(row[COLS.name],kw)}</div></td>
+      <td class="part-cell"><div class="cell-overflow">${hl(row[COLS.part],kw)}</div></td>
+      <td class="brand-cell">${esc(row[COLS.brand])}</td>
+      <td class="cost-cell">${fmt(row[COLS.cost])}</td>
+      <td class="loc-cell">${esc(row[COLS.location])}</td>
+      <td class="row-arrow">›</td>
+    </tr>`;
+  });
+  wrap.innerHTML = t+'</tbody></table></div>';
+  // Cards
+  cards.innerHTML = data.map((row,i)=>`
+    <div class="part-card" onclick="openModal(${i})">
+      <div class="card-top">
+        <div class="card-name">${hl(row[COLS.name],kw)}</div>
+        <div class="card-cost">${fmt(row[COLS.cost])}</div>
+      </div>
+      <div class="card-part">${hl(row[COLS.part],kw)}</div>
+      <div class="card-bottom">
+        <div class="card-brand">${esc(row[COLS.brand])}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="card-loc">${esc(row[COLS.location])}</span>
+          <span class="card-arrow">›</span>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function updateCount(s,t) {
+  document.getElementById('results-count').innerHTML=`Showing <span class="num">${s}</span> of ${t} records`;
+}
+
+function openModal(i) {
+  const r=filteredData[i];
+  document.getElementById('modal-title').textContent = r[COLS.name]||'—';
+  document.getElementById('modal-part').textContent  = r[COLS.part]||'—';
+  document.getElementById('modal-cat').textContent   = r[COLS.category]||'—';
+  document.getElementById('modal-brand').textContent = r[COLS.brand]||'—';
+  document.getElementById('modal-cost').textContent  = fmt(r[COLS.cost]);
+  document.getElementById('modal-loc').textContent   = r[COLS.location]||'—';
+  document.getElementById('modal-desc').textContent  = r[COLS.description]||'No description available.';
+  document.getElementById('modal-overlay').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeModal(e) { if(e.target===document.getElementById('modal-overlay')) closeModalDirect(); }
+function closeModalDirect() { document.getElementById('modal-overlay').classList.remove('open'); document.body.style.overflow=''; }
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModalDirect(); });
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function hlM(s,kw){ if(!kw) return esc(s); return esc(s).replace(new RegExp('('+kw.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'),'<mark>$1</mark>'); }
+function hl(s,kw){ return hlM(s,kw); }
+function fmt(v){
+  if(!v||v==='') return '—';
+  const n=parseFloat(String(v).replace(/[^0-9.]/g,''));
+  if(isNaN(n)) return esc(v);
+  return n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2});
+}
+</script>
+</body>
+</html>
