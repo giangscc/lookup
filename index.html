@@ -285,8 +285,8 @@ mark { background: transparent; color: var(--accent); font-weight: 700; }
   <div class="logo">
     <div class="logo-icon">⚙️</div>
     <div>
-      <div class="logo-text">SE DEPARTMENT - SES TEAM</div>
-      <div class="logo-sub">Equipment & Spare Parts Lookup System</div>
+      <div class="logo-text">SES TEAM</div>
+      <div class="logo-sub">Equipment & Spare Part Lookup System</div>
     </div>
   </div>
   <div class="header-stat">RECORDS: <span id="total-count">—</span></div>
@@ -383,43 +383,36 @@ const COLS = {
 
 let allData = [], filteredData = [], activeIdx = -1;
 
-// Fetch CSV từ Google Sheets
-const URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
+// Dùng Google Visualization JSON API — đáng tin cậy nhất
+const GVZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
 
-fetch(URL)
+fetch(GVZ_URL)
   .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
-  .then(csv => init(parseCSV(csv)))
+  .then(text => {
+    // Google trả về JSONP, cần bóc JSON bên trong
+    const json = JSON.parse(text.replace(/^[^(]+\(/, '').replace(/\);?\s*$/, ''));
+    const table = json.table;
+    const headers = table.cols.map(c => (c.label || c.id || '').trim());
+    const rows = table.rows
+      .map(row => {
+        const obj = {};
+        headers.forEach((h, i) => {
+          const cell = row.c && row.c[i];
+          obj[h] = (cell && cell.v !== null && cell.v !== undefined) ? String(cell.v).trim() : '';
+        });
+        return obj;
+      })
+      .filter(r => Object.values(r).some(v => v !== ''));
+    init(rows);
+  })
   .catch(err => {
     document.getElementById('main-content').innerHTML =
       `<div class="state-box">
         <div class="icon">⚠️</div>
         <p>Cannot load data</p>
-        <div class="sub">${err.message} — Check SHEET_ID &amp; sharing settings</div>
+        <div class="sub">${err.message} — Kiểm tra SHEET_ID và Share "Anyone with the link"</div>
       </div>`;
   });
-
-function parseCSV(text) {
-  const rows = [];
-  text.split(/\r?\n/).forEach(line => {
-    if (!line.trim()) return;
-    const row = [];
-    let cur = '', inQ = false;
-    for (let i = 0; i <= line.length; i++) {
-      const c = line[i];
-      if (c === '"') { inQ = !inQ; continue; }
-      if ((c === ',' || c === undefined) && !inQ) { row.push(cur); cur = ''; }
-      else cur += (c || '');
-    }
-    rows.push(row);
-  });
-  if (rows.length < 2) return [];
-  const headers = rows[0].map(h => h.trim());
-  return rows.slice(1).map(r => {
-    const obj = {};
-    headers.forEach((h, i) => obj[h] = (r[i] || '').trim());
-    return obj;
-  });
-}
 
 function init(data) {
   allData = data;
